@@ -1,16 +1,16 @@
 package main
 
 import (
-	"context"
-	cloudstorage "go_project_template/configs/cloud_storage"
-	"go_project_template/configs/db"
-	"go_project_template/configs/redis"
-	"go_project_template/internal/controller"
-	"go_project_template/internal/query"
-	router "go_project_template/internal/routes"
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/ardimr/go-authentication-service.git/configs/db"
+	"github.com/ardimr/go-authentication-service.git/configs/redis"
+	"github.com/ardimr/go-authentication-service.git/internal/auth"
+	"github.com/ardimr/go-authentication-service.git/internal/controller"
+	"github.com/ardimr/go-authentication-service.git/internal/query"
+	router "github.com/ardimr/go-authentication-service.git/internal/routes"
 
 	"github.com/gin-contrib/gzip"
 
@@ -54,31 +54,31 @@ func main() {
 	)
 
 	if err != nil {
-		log.Fatalln("Failed to connect redis")
+		log.Println("Failed to connect redis")
 	}
 
 	// Setup Cloud Storage
-	var cloudClient cloudstorage.CloudStorageInterface
+	// var cloudClient cloudstorage.CloudStorageInterface
 
-	cloudStorageUseSSL, err := strconv.ParseBool(os.Getenv("CLOUD_STORAGE_USE_SSL"))
-	if err != nil {
-		log.Fatalln(err)
-	}
+	// cloudStorageUseSSL, err := strconv.ParseBool(os.Getenv("CLOUD_STORAGE_USE_SSL"))
+	// if err != nil {
+	// 	log.Println(err.Error())
+	// }
 
-	minioClient, err := cloudstorage.NewMinioClient(
-		os.Getenv("CLOUD_STORAGE_ENDPOINT"),
-		os.Getenv("CLOUD_STORAGE_ACCESS_KEY"),
-		os.Getenv("CLOUD_STORAGE_SECRET_KEY"),
-		cloudStorageUseSSL,
-	)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	// minioClient, err := cloudstorage.NewMinioClient(
+	// 	os.Getenv("CLOUD_STORAGE_ENDPOINT"),
+	// 	os.Getenv("CLOUD_STORAGE_ACCESS_KEY"),
+	// 	os.Getenv("CLOUD_STORAGE_SECRET_KEY"),
+	// 	cloudStorageUseSSL,
+	// )
+	// if err != nil {
+	// 	log.Println(err)
+	// }
 
 	// Use minio as cloud client
-	cloudClient = minioClient
+	// cloudClient = minioClient
 
-	cloudClient.ListBuckets(context.Background())
+	// cloudClient.ListBuckets(context.Background())
 
 	// Setup REST Server
 	restServer := gin.New()
@@ -86,11 +86,23 @@ func main() {
 	restServer.Use(gin.Logger())
 	restServer.Use(gzip.Gzip(gzip.DefaultCompression))
 
+	// Initialize Auth service
+	expiresAt, err := strconv.Atoi(os.Getenv("JWT_EXPIRES_AT"))
+
+	if err != nil {
+		log.Println(err.Error())
+	}
+	log.Println(expiresAt)
+	auth := auth.NewAuthService(
+		os.Getenv("JWT_ISSUER"),
+		int64(expiresAt),
+		[]byte(os.Getenv("JWT_SIGNING_KEY")),
+	)
 	// Setup Router
-	userController := controller.NewController(query.NewPostgresQuerier(dbConnection))
+	userController := controller.NewController(query.NewPostgresQuerier(dbConnection), auth)
 	userRouter := router.NewRouter(userController)
 
 	userRouter.AddRoute(restServer.Group("/api"))
-	// restServer.Run("localhost:8080")
+	restServer.Run("localhost:8080")
 
 }
