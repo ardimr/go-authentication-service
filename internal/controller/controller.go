@@ -2,26 +2,81 @@ package controller
 
 import (
 	"database/sql"
-	"go_project_template/internal/model"
-	"go_project_template/internal/query"
+	"errors"
+	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/ardimr/go-authentication-service.git/internal/auth"
+	"github.com/ardimr/go-authentication-service.git/internal/model"
+	"github.com/ardimr/go-authentication-service.git/internal/query"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Controller struct {
 	querier query.Querier
+	auth    auth.Authentication
 }
 
-func NewController(q query.Querier) *Controller {
+func NewController(q query.Querier, auth auth.Authentication) *Controller {
 	return &Controller{
 		querier: q,
+		auth:    auth,
 	}
 }
 
 // Controller Implementation
 
+func (controller *Controller) SignIn(ctx *gin.Context) {
+	// Get username and password as the basic auth
+	username, password, ok := ctx.Request.BasicAuth()
+
+	if !ok {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		log.Println("Not a basic auth")
+		return
+	}
+
+	// Get user's info
+	user, err := controller.querier.GetUserByUsername(ctx, username)
+
+	if err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "User not found"})
+		default:
+			ctx.JSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
+		}
+		return
+	}
+
+	// Check if the userPassword is correct
+	if user.Password != password {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "Incorrect Password"})
+	}
+
+	// User is authenticated, proceed to generate new token
+	newToken, err := controller.auth.GenerateNewToken(user)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		ctx.AbortWithError(http.StatusInternalServerError, errors.New("failed to generate new token"))
+	}
+
+	// c.SetCookie("token", newToken, 60, "/", "localhost", false, true)
+	ctx.JSON(http.StatusOK, gin.H{
+		"token": newToken,
+	})
+}
+
 func (controller *Controller) GetUsers(ctx *gin.Context) {
+
+	userInfo, ok := ctx.Get("user-info")
+	if ok {
+		fmt.Println(userInfo)
+	}
+
 	// Get users data from db
 	users, err := controller.querier.GetUsers(ctx)
 	if err != nil {

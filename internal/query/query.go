@@ -3,8 +3,9 @@ package query
 import (
 	"context"
 	"database/sql"
-	"go_project_template/configs/db"
-	"go_project_template/internal/model"
+
+	"github.com/ardimr/go-authentication-service.git/configs/db"
+	"github.com/ardimr/go-authentication-service.git/internal/model"
 )
 
 type Querier interface {
@@ -13,6 +14,8 @@ type Querier interface {
 	AddNewUser(ctx context.Context, newUser model.User) (int64, error)
 	UpdateUser(ctx context.Context, user model.User) (int64, error)
 	DeleteUser(ctx context.Context, id int64) error
+	GetUserPasswordByUsername(ctx context.Context, username string) (string, error)
+	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
 }
 
 type PostgresQuerier struct {
@@ -26,12 +29,57 @@ func NewPostgresQuerier(db db.DBInterface) *PostgresQuerier {
 }
 
 // Query Implementation
+func (q *PostgresQuerier) GetUserPasswordByUsername(ctx context.Context, username string) (string, error) {
+	var password string
 
+	queryStatement := `
+	SELECT
+		password
+	FROM public.users
+	WHERE username=$1
+	`
+
+	err := q.db.QueryRowContext(ctx, queryStatement, username).Scan(&password)
+
+	if err != nil {
+		return "", err
+	}
+
+	return password, nil
+
+}
+func (q *PostgresQuerier) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
+	var user model.User
+
+	queryStatement := `
+	SELECT
+		username,
+		password,
+		name,
+		email,
+		role
+	FROM public.users
+	WHERE username=$1
+	`
+	err := q.db.QueryRowContext(ctx, queryStatement, username).Scan(
+		&user.Username,
+		&user.Password,
+		&user.Name,
+		&user.Email,
+		&user.Role,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
 func (q *PostgresQuerier) GetUsers(ctx context.Context) ([]model.User, error) {
 	var users []model.User
 
 	sqlStatement := `
-	SELECT * FROM public.users
+	SELECT id,name FROM public.users
 	`
 
 	// Querying

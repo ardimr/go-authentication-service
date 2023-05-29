@@ -1,7 +1,7 @@
 package router
 
 import (
-	"go_project_template/internal/controller"
+	"github.com/ardimr/go-authentication-service.git/internal/controller"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,7 +23,9 @@ func (router *Router) AddRoute(superRoute *gin.RouterGroup) {
 
 func (router *Router) userRoutes(superRoute *gin.RouterGroup) {
 	userRouter := superRoute.Group("/user-service")
-	userRouter.GET("/users", router.controller.GetUsers)
+	userRouter.POST("/login", router.controller.SignIn)
+	userRouter.GET("/check", router.controller.MiddlewareValidateToken)
+	userRouter.GET("/users", router.controller.MiddlewareValidateToken, router.controller.GetUsers)
 	userRouter.GET("/users/:id", router.controller.GetUserById)
 	userRouter.POST("/users", router.controller.AddNewUser)
 	userRouter.PATCH("/users", router.controller.UpdateUser)
