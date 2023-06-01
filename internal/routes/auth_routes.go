@@ -17,15 +17,20 @@ func NewRouter(controller *controller.Controller) *Router {
 }
 
 func (router *Router) AddRoute(superRoute *gin.RouterGroup) {
-	router.userRoutes(superRoute)
-	// router.sfmRoutes(superRoute)
+	router.AddUserRoutes(superRoute)
+	router.AddAuthRoutes(superRoute)
 }
 
-func (router *Router) userRoutes(superRoute *gin.RouterGroup) {
+func (router *Router) AddAuthRoutes(superRoute *gin.RouterGroup) {
+	authRouter := superRoute.Group("/auth")
+	authRouter.POST("/login", router.controller.SignIn)
+
+}
+func (router *Router) AddUserRoutes(superRoute *gin.RouterGroup) {
 	userRouter := superRoute.Group("/user-service")
-	userRouter.POST("/login", router.controller.SignIn)
-	userRouter.GET("/check", router.controller.MiddlewareValidateToken)
-	userRouter.GET("/users", router.controller.MiddlewareValidateToken, router.controller.GetUsers)
+	userRouter.Use(router.controller.MiddlewareValidateToken)
+
+	userRouter.GET("/users", router.controller.GetUsers)
 	userRouter.GET("/users/:id", router.controller.GetUserById)
 	userRouter.POST("/users", router.controller.AddNewUser)
 	userRouter.PATCH("/users", router.controller.UpdateUser)

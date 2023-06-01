@@ -100,9 +100,14 @@ func main() {
 	)
 	// Setup Router
 	userController := controller.NewController(query.NewPostgresQuerier(dbConnection), auth)
+	// authController := controller.NewController(query.NewPostgresQuerier(dbConnection))
+
 	userRouter := router.NewRouter(userController)
+	// authRouter := router.NewRouter(authController)
 
 	userRouter.AddRoute(restServer.Group("/api"))
+
+	// Run server
 	restServer.Run("localhost:8080")
 
 }

@@ -73,6 +73,7 @@ func (controller *Controller) SignIn(ctx *gin.Context) {
 func (controller *Controller) GetUsers(ctx *gin.Context) {
 
 	userInfo, ok := ctx.Get("user-info")
+
 	if ok {
 		fmt.Println(userInfo)
 	}
