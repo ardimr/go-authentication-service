@@ -39,8 +39,7 @@ func (controller *Controller) SignIn(ctx *gin.Context) {
 	}
 
 	// Get user's info
-	user, err := controller.querier.GetUserByUsername(ctx, username)
-
+	user, err := controller.querier.GetUserInfoByUsername(ctx, username)
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
@@ -53,7 +52,9 @@ func (controller *Controller) SignIn(ctx *gin.Context) {
 
 	// Check if the userPassword is correct
 	if user.Password != password {
+		log.Println(user.Password, password)
 		ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "Incorrect Password"})
+		return
 	}
 
 	// User is authenticated, proceed to generate new token
@@ -71,12 +72,6 @@ func (controller *Controller) SignIn(ctx *gin.Context) {
 }
 
 func (controller *Controller) GetUsers(ctx *gin.Context) {
-
-	userInfo, ok := ctx.Get("user-info")
-
-	if ok {
-		fmt.Println(userInfo)
-	}
 
 	// Get users data from db
 	users, err := controller.querier.GetUsers(ctx)

@@ -12,14 +12,17 @@ import (
 
 type MyClaims struct {
 	jwt.StandardClaims
-	Username string `json:"Username"`
-	Email    string `json:"Email"`
-	Role     string `json:"role"`
+	Username    string   `json:"Username"`
+	Email       string   `json:"Email"`
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions"`
 }
+
 type Authentication interface {
 	// Authenticate(reqUser *model.User, user *model.User)
-	GenerateNewToken(user *model.User) (string, error)
+	GenerateNewToken(user *model.UserInfo) (string, error)
 	ValidateToken(tokenString string) (*jwt.Token, error)
+	CheckPermission(user model.UserInfo, action string) bool
 }
 
 type AuthService struct {
@@ -36,16 +39,17 @@ func NewAuthService(issuer string, expiresAt int64, signingKey []byte) *AuthServ
 	}
 }
 
-func (auth *AuthService) GenerateNewToken(user *model.User) (string, error) {
+func (auth *AuthService) GenerateNewToken(user *model.UserInfo) (string, error) {
 	log.Println("Exp: ", auth.ExpiresAt)
 	claims := MyClaims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    auth.Issuer,
 			ExpiresAt: time.Now().Add(time.Duration(auth.ExpiresAt) * time.Second).Unix(),
 		},
-		Username: user.Username,
-		Email:    user.Email,
-		Role:     user.Role,
+		Username:    user.Username,
+		Email:       user.Email,
+		Role:        user.Role,
+		Permissions: user.Permissions,
 	}
 
 	token := jwt.NewWithClaims(
@@ -80,4 +84,15 @@ func (auth *AuthService) ValidateToken(tokenString string) (*jwt.Token, error) {
 
 	return token, nil
 
+}
+
+func (auth *AuthService) CheckPermission(user model.UserInfo, action string) bool {
+
+	for _, permission := range user.Permissions {
+		if permission == action {
+			return true
+		}
+	}
+
+	return false
 }
