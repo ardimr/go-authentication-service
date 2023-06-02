@@ -16,6 +16,7 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id int64) error
 	GetUserPasswordByUsername(ctx context.Context, username string) (string, error)
 	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
+	GetUserInfoByUsername(ctx context.Context, username string) (*model.UserInfo, error)
 }
 
 type PostgresQuerier struct {
@@ -75,11 +76,103 @@ func (q *PostgresQuerier) GetUserByUsername(ctx context.Context, username string
 
 	return &user, nil
 }
+
+func (q *PostgresQuerier) GetUserInfoByUsername(ctx context.Context, username string) (*model.UserInfo, error) {
+	var user model.UserInfo
+
+	tx, err := q.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
+
+	if err != nil {
+		return nil, err
+	}
+
+	queryStatement := `
+	SELECT
+		username,
+		name,
+		password,
+		email
+	FROM public.users
+	WHERE username=$1
+	`
+	err = tx.QueryRowContext(ctx, queryStatement, username).Scan(
+		&user.Username,
+		&user.Name,
+		&user.Password,
+		&user.Email,
+	)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	queryStatement = `
+	SELECT
+		roles.name
+	FROM users
+	INNER JOIN user_roles
+	ON users.id = user_roles.user_id
+	INNER JOIN roles
+	ON user_roles.role_id = roles.id
+	WHERE users.username=$1
+	`
+	err = tx.QueryRowContext(ctx, queryStatement, username).Scan(
+		&user.Role,
+	)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	queryStatement = `
+	SELECT
+		permissions.action
+	FROM users
+	INNER JOIN user_roles
+	ON users.id = user_roles.user_id
+	INNER JOIN role_permissions
+	ON user_roles.role_id = role_permissions.role_id
+	INNER JOIN permissions
+	ON role_permissions.permission_id = permissions.id
+	WHERE users.username=$1
+	`
+	rows, err := tx.QueryContext(ctx, queryStatement, username)
+
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	for rows.Next() {
+		var permission string
+		err := rows.Scan(&permission)
+
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+
+		user.Permissions = append(user.Permissions, permission)
+	}
+
+	tx.Commit()
+	return &user, nil
+}
+
 func (q *PostgresQuerier) GetUsers(ctx context.Context) ([]model.User, error) {
 	var users []model.User
 
 	sqlStatement := `
-	SELECT id,name FROM public.users
+	SELECT 
+		id,
+		username,
+		name,
+		email,
+		created_at,
+		updated_at
+	FROM public.users
 	`
 
 	// Querying
@@ -93,7 +186,14 @@ func (q *PostgresQuerier) GetUsers(ctx context.Context) ([]model.User, error) {
 		var user model.User
 
 		// read data
-		err := rows.Scan(&user.ID, &user.Name)
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.Name,
+			&user.Email,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -130,10 +230,16 @@ func (q *PostgresQuerier) AddNewUser(ctx context.Context, newUser model.User) (i
 	var newId int64
 
 	sqlStatement := `
-	INSERT INTO public.users (name) VALUES ($1) RETURNING id
+	INSERT INTO public.users 
+		(name, username, password, email) VALUES ($1,$2,$3,$4) RETURNING id
 	`
 
-	err := q.db.QueryRowContext(ctx, sqlStatement, newUser.Name).Scan(&newId)
+	err := q.db.QueryRowContext(ctx,
+		sqlStatement,
+		newUser.Name,
+		newUser.Username,
+		newUser.Password,
+		newUser.Email).Scan(&newId)
 
 	if err != nil {
 		return 0, err
