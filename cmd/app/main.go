@@ -102,7 +102,7 @@ func main() {
 	userController := controller.NewController(query.NewPostgresQuerier(dbConnection), auth)
 	// authController := controller.NewController(query.NewPostgresQuerier(dbConnection))
 
-	userRouter := router.NewRouter(userController)
+	userRouter := router.NewRouter(userController, auth)
 	// authRouter := router.NewRouter(authController)
 
 	userRouter.AddRoute(restServer.Group("/api"))
