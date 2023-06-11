@@ -50,6 +50,7 @@ func UserHasPermission(auth *auth.AuthService) gin.HandlerFunc {
 
 		// Get action method
 		action := ActionFromMethod(ctx.Request.Method)
+
 		// Check permission
 		user, ok := ctx.Get("user-info")
 

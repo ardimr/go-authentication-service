@@ -22,3 +22,9 @@ type UserInfo struct {
 	Role        string   `json:"role"`
 	Permissions []string `json:"permissions"`
 }
+
+type UserRole struct {
+	ID       int64  `json:"id,omitempty"`
+	Username string `json:"username"`
+	RoleID   int64  `json:"role_id"`
+}

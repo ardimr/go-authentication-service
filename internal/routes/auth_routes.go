@@ -23,11 +23,13 @@ func NewRouter(controller *controller.Controller, auth *auth.AuthService) *Route
 func (router *Router) AddRoute(superRoute *gin.RouterGroup) {
 	router.AddUserRoutes(superRoute)
 	router.AddAuthRoutes(superRoute)
+	router.AddRBACRoutes(superRoute)
 }
 
 func (router *Router) AddAuthRoutes(superRoute *gin.RouterGroup) {
 	authRouter := superRoute.Group("/auth")
-	authRouter.POST("/login", router.controller.SignIn)
+	authRouter.POST("/signin", router.controller.SignIn)
+	authRouter.POST("/signup", router.controller.SignUp)
 
 }
 
@@ -42,4 +44,11 @@ func (router *Router) AddUserRoutes(superRoute *gin.RouterGroup) {
 	userRouter.PATCH("/users", router.controller.UpdateUser)
 	userRouter.DELETE("/users/:id", router.controller.DeleteUser)
 
+	userRouter.POST("/users/:id/roles", router.controller.AddUserRole)
+
+}
+
+func (router *Router) AddRBACRoutes(superRoute *gin.RouterGroup) {
+	rbacRouter := superRoute.Group("/user-management")
+	rbacRouter.GET("/rbac/role-permissions", router.controller.GetRolePermissions)
 }
