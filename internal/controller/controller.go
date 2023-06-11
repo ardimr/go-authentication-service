@@ -71,6 +71,63 @@ func (controller *Controller) SignIn(ctx *gin.Context) {
 	})
 }
 
+func (controller *Controller) SignUp(ctx *gin.Context) {
+	// Get user info from sign up form
+	var newUser model.NewUser
+	if err := ctx.BindJSON(&newUser); err != nil {
+		ctx.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			gin.H{"Error": err.Error()},
+		)
+		return
+	}
+
+	// Add new user to the datasbase
+	newId, err := controller.querier.AddNewUser(ctx, newUser)
+
+	if err != nil {
+
+		ctx.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			gin.H{"Error": err.Error()},
+		)
+		return
+	}
+
+	ctx.JSON(
+		http.StatusOK,
+		gin.H{"New Id": newId},
+	)
+}
+
+func (controller *Controller) AddUserRole(ctx *gin.Context) {
+	var newUserRole model.UserRole
+
+	if err := ctx.BindJSON(&newUserRole); err != nil {
+		ctx.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			gin.H{"Error": err.Error()},
+		)
+		return
+	}
+
+	// Add user role to database
+	newId, err := controller.querier.AddUserRole(ctx, newUserRole)
+
+	if err != nil {
+		ctx.AbortWithStatusJSON(
+			http.StatusBadRequest,
+			gin.H{"Error": err.Error()},
+		)
+		return
+	}
+
+	ctx.JSON(
+		http.StatusOK,
+		gin.H{"New ID": newId},
+	)
+}
+
 func (controller *Controller) GetUsers(ctx *gin.Context) {
 
 	// Get users data from db
@@ -128,7 +185,7 @@ func (controller *Controller) GetUserById(ctx *gin.Context) {
 }
 
 func (controler *Controller) AddNewUser(ctx *gin.Context) {
-	var newUser model.User
+	var newUser model.NewUser
 
 	if err := ctx.BindJSON(&newUser); err != nil {
 		ctx.JSON(
@@ -219,4 +276,16 @@ func (controller *Controller) DeleteUser(ctx *gin.Context) {
 	ctx.Status(
 		http.StatusOK,
 	)
+}
+
+func (controller *Controller) GetRolePermissions(ctx *gin.Context) {
+
+	rolePermissions, err := controller.querier.GetRolePermissions(ctx)
+
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, rolePermissions)
 }
