@@ -106,6 +106,36 @@ func UserHasPermission(auth *auth.AuthService) gin.HandlerFunc {
 	}
 }
 
+func MiddlewareSetUserPermissions(auth *auth.AuthService) gin.HandlerFunc {
+
+	return func(ctx *gin.Context) {
+		// Get user's info from the validated token
+		var userInfo model.UserInfo
+		user, ok := ctx.Get("user-info")
+
+		if !ok {
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+		}
+
+		userByte, _ := json.Marshal(user)
+		err := json.Unmarshal(userByte, &userInfo)
+
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
+		}
+
+		// Get user's permission from the database
+		rolePermissions, err := auth.Querier.GetRolePermissionsByUsername(ctx, userInfo.Username)
+
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"Error": err.Error()})
+		}
+
+		// Attach user's permission on the header
+		ctx.Set("user-permissions", rolePermissions)
+	}
+
+}
 func ActionFromMethod(httpMethod string) string {
 	switch httpMethod {
 	case "GET":

@@ -97,7 +97,9 @@ func main() {
 		os.Getenv("JWT_ISSUER"),
 		int64(expiresAt),
 		[]byte(os.Getenv("JWT_SIGNING_KEY")),
+		query.NewPostgresQuerier(dbConnection),
 	)
+
 	// Setup Router
 	userController := controller.NewController(query.NewPostgresQuerier(dbConnection), auth)
 	// authController := controller.NewController(query.NewPostgresQuerier(dbConnection))

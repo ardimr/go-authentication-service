@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ardimr/go-authentication-service.git/internal/model"
+	"github.com/ardimr/go-authentication-service.git/internal/query"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -26,13 +27,15 @@ type AuthService struct {
 	Issuer     string
 	ExpiresAt  int64
 	SigningKey []byte
+	Querier    query.Querier
 }
 
-func NewAuthService(issuer string, expiresAt int64, signingKey []byte) *AuthService {
+func NewAuthService(issuer string, expiresAt int64, signingKey []byte, querier query.Querier) *AuthService {
 	return &AuthService{
 		Issuer:     issuer,
 		ExpiresAt:  expiresAt,
 		SigningKey: signingKey,
+		Querier:    querier,
 	}
 }
 
