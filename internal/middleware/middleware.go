@@ -2,7 +2,9 @@ package middleware
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/ardimr/go-authentication-service.git/internal/auth"
 	"github.com/ardimr/go-authentication-service.git/internal/model"
@@ -45,18 +47,42 @@ func MiddlewareValidateToken(auth *auth.AuthService) gin.HandlerFunc {
 
 func UserHasPermission(auth *auth.AuthService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		// Get User Info
+		// Get the user information from the request header
 		var userInfo model.UserInfo
+		user, ok := ctx.Get("user-info")
+		if !ok {
+			ctx.AbortWithStatus(http.StatusForbidden)
+		}
+		userByte, _ := json.Marshal(user)
+		err := json.Unmarshal(userByte, &userInfo)
+
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
+		}
+		// Get user Permissions from the request header
+		var rolePermission model.RolePermission
+		rawRolePermission, ok := ctx.Get("user-permissions")
+
+		if !ok {
+			ctx.AbortWithStatus(http.StatusForbidden)
+		}
+
+		rolePermissionByte, _ := json.Marshal(rawRolePermission)
+		err = json.Unmarshal(rolePermissionByte, &rolePermission)
+
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, err.Error())
+		}
+
+		// fmt.Println(rolePermission)
 
 		// Get action method
 		action := ActionFromMethod(ctx.Request.Method)
 
-		// Check permission
-		user, ok := ctx.Get("user-info")
-
-		userByte, _ := json.Marshal(user)
-
-		err := json.Unmarshal(userByte, &userInfo)
+		// Get the requested resource from the url
+		// The requested resource is the third element of the splitted path
+		// api/user-management/resource -> [api, user-management, resource]
+		resource := strings.Split(ctx.Request.URL.Path, "/")[3]
 
 		if err != nil {
 			ctx.AbortWithStatusJSON(
@@ -68,11 +94,11 @@ func UserHasPermission(auth *auth.AuthService) gin.HandlerFunc {
 			return
 		}
 
-		if !ok || !auth.CheckPermission(userInfo, action) {
+		if !ok || !auth.CheckPermission(rolePermission, resource, action) {
 			ctx.AbortWithStatusJSON(
 				http.StatusForbidden,
 				gin.H{
-					"Message": "Forbidden Access",
+					"Message": fmt.Sprintf("Forbidden Access, Not Allowed to %s %s", action, resource),
 				},
 			)
 			return

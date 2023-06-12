@@ -36,6 +36,7 @@ func (router *Router) AddAuthRoutes(superRoute *gin.RouterGroup) {
 func (router *Router) AddUserRoutes(superRoute *gin.RouterGroup) {
 	userRouter := superRoute.Group("/user-management")
 	userRouter.Use(middleware.MiddlewareValidateToken(router.auth))
+	userRouter.Use(router.controller.MiddlewareSetUserPermissions)
 	userRouter.Use(middleware.UserHasPermission(router.auth))
 
 	userRouter.GET("/users", router.controller.GetUsers)

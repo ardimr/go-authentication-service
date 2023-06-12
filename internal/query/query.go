@@ -20,6 +20,7 @@ type Querier interface {
 	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
 	GetUserInfoByUsername(ctx context.Context, username string) (*model.UserInfo, error)
 	GetRolePermissions(ctx context.Context) ([]model.RolePermission, error)
+	GetRolePermissionsByUsername(ctx context.Context, username string) (model.RolePermission, error)
 }
 
 type PostgresQuerier struct {
@@ -269,6 +270,7 @@ func (q *PostgresQuerier) AddUserRole(ctx context.Context, userRole model.UserRo
 
 	return newId, nil
 }
+
 func (q *PostgresQuerier) UpdateUser(ctx context.Context, user model.User) (int64, error) {
 
 	sqlStatement := `
@@ -363,6 +365,52 @@ func (q *PostgresQuerier) GetRolePermissions(ctx context.Context) ([]model.RoleP
 	}
 
 	return rolePermissions, nil
+
+}
+
+func (q *PostgresQuerier) GetRolePermissionsByUsername(ctx context.Context, username string) (model.RolePermission, error) {
+
+	queryStatement := `
+	WITH role_resource_permission as (
+		SELECT
+			roles.name AS role_name,
+			resources.name AS resource_name,
+			array_agg(permissions.action) AS actions
+		FROM role_resource_permissions
+		INNER JOIN roles on roles.id = role_resource_permissions.role_id
+		INNER JOIN resources on resources.id = role_resource_permissions.resource_id
+		INNER JOIN permissions on permissions.id = role_resource_permissions.permission_id
+		INNER JOIN user_roles on user_roles.role_id = roles.id
+		WHERE user_roles.username = $1
+		GROUP BY role_name, resource_name
+	)
+	
+	SELECT
+		role_name,
+		json_agg(json_build_object('resource', resource_name, 'actions', actions)) AS permissions
+	FROM role_resource_permission
+	GROUP BY role_name	
+	`
+	var rawRolePermission model.RawRolePermission
+	var rolePermission model.RolePermission
+	err := q.db.QueryRowContext(ctx, queryStatement, username).Scan(
+		&rawRolePermission.RoleName,
+		&rawRolePermission.Permissions,
+	)
+
+	if err != nil {
+		return rolePermission, err
+	}
+
+	rolePermission.RoleName = rawRolePermission.RoleName
+	// Unmarshal array of bytes into resource permission model
+	err = json.Unmarshal(rawRolePermission.Permissions, &rolePermission.Permissions)
+
+	if err != nil {
+		return rolePermission, err
+	}
+
+	return rolePermission, nil
 
 }
 

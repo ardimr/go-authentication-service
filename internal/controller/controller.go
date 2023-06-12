@@ -2,6 +2,7 @@ package controller
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -288,4 +289,31 @@ func (controller *Controller) GetRolePermissions(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, rolePermissions)
+}
+
+func (controller *Controller) MiddlewareSetUserPermissions(ctx *gin.Context) {
+	// Get user's info from the validated token
+	var userInfo model.UserInfo
+	user, ok := ctx.Get("user-info")
+
+	if !ok {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+	}
+
+	userByte, _ := json.Marshal(user)
+	err := json.Unmarshal(userByte, &userInfo)
+
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
+	}
+
+	// Get user's permission from the database
+	rolePermissions, err := controller.querier.GetRolePermissionsByUsername(ctx, userInfo.Username)
+
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"Error": err.Error()})
+	}
+
+	// Attach user's permission on the header
+	ctx.Set("user-permissions", rolePermissions)
 }

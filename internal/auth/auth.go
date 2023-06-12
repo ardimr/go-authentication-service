@@ -2,7 +2,6 @@ package auth
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/ardimr/go-authentication-service.git/internal/model"
@@ -12,17 +11,15 @@ import (
 
 type MyClaims struct {
 	jwt.StandardClaims
-	Username    string   `json:"Username"`
-	Email       string   `json:"Email"`
-	Role        string   `json:"role"`
-	Permissions []string `json:"permissions"`
+	Username string `json:"Username"`
+	Email    string `json:"Email"`
 }
 
 type Authentication interface {
 	// Authenticate(reqUser *model.User, user *model.User)
 	GenerateNewToken(user *model.UserInfo) (string, error)
 	ValidateToken(tokenString string) (*jwt.Token, error)
-	CheckPermission(user model.UserInfo, action string) bool
+	CheckPermission(userRolePermission model.RolePermission, resource string, action string) bool
 }
 
 type AuthService struct {
@@ -40,16 +37,14 @@ func NewAuthService(issuer string, expiresAt int64, signingKey []byte) *AuthServ
 }
 
 func (auth *AuthService) GenerateNewToken(user *model.UserInfo) (string, error) {
-	log.Println("Exp: ", auth.ExpiresAt)
+	// log.Println("Exp: ", auth.ExpiresAt)
 	claims := MyClaims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    auth.Issuer,
 			ExpiresAt: time.Now().Add(time.Duration(auth.ExpiresAt) * time.Second).Unix(),
 		},
-		Username:    user.Username,
-		Email:       user.Email,
-		Role:        user.Role,
-		Permissions: user.Permissions,
+		Username: user.Username,
+		Email:    user.Email,
 	}
 
 	token := jwt.NewWithClaims(
@@ -86,11 +81,15 @@ func (auth *AuthService) ValidateToken(tokenString string) (*jwt.Token, error) {
 
 }
 
-func (auth *AuthService) CheckPermission(user model.UserInfo, action string) bool {
+func (auth *AuthService) CheckPermission(userRolePermission model.RolePermission, resource string, action string) bool {
 
-	for _, permission := range user.Permissions {
-		if permission == action {
-			return true
+	for _, rolePermission := range userRolePermission.Permissions {
+		if rolePermission.ResourceName == resource {
+			for _, actionPermitted := range rolePermission.Actions {
+				if actionPermitted == action {
+					return true
+				}
+			}
 		}
 	}
 
