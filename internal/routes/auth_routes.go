@@ -28,9 +28,8 @@ func (router *Router) AddRoute(superRoute *gin.RouterGroup) {
 
 func (router *Router) AddAuthRoutes(superRoute *gin.RouterGroup) {
 	authRouter := superRoute.Group("/auth")
-	authRouter.POST("/signin", router.controller.SignIn)
+	authRouter.POST("/signin", router.auth.SignIn)
 	authRouter.POST("/signup", router.controller.SignUp)
-
 }
 
 func (router *Router) AddUserRoutes(superRoute *gin.RouterGroup) {

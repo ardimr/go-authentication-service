@@ -3,9 +3,6 @@ package controller
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/ardimr/go-authentication-service.git/internal/auth"
@@ -29,48 +26,48 @@ func NewController(q query.Querier, auth auth.Authentication) *Controller {
 
 // Controller Implementation
 
-func (controller *Controller) SignIn(ctx *gin.Context) {
-	// Get username and password as the basic auth
-	username, password, ok := ctx.Request.BasicAuth()
+// func (controller *Controller) SignIn(ctx *gin.Context) {
+// 	// Get username and password as the basic auth
+// 	username, password, ok := ctx.Request.BasicAuth()
 
-	if !ok {
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		log.Println("Not a basic auth")
-		return
-	}
+// 	if !ok {
+// 		ctx.AbortWithStatus(http.StatusBadRequest)
+// 		log.Println("Not a basic auth")
+// 		return
+// 	}
 
-	// Get user's info
-	user, err := controller.querier.GetUserInfoByUsername(ctx, username)
-	if err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "User not found"})
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
-		}
-		return
-	}
+// 	// Get user's info
+// 	user, err := controller.querier.GetUserInfoByUsername(ctx, username)
+// 	if err != nil {
+// 		switch err {
+// 		case sql.ErrNoRows:
+// 			ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "User not found"})
+// 		default:
+// 			ctx.JSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
+// 		}
+// 		return
+// 	}
 
-	// Check if the userPassword is correct
-	if user.Password != password {
-		log.Println(user.Password, password)
-		ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "Incorrect Password"})
-		return
-	}
+// 	// Check if the userPassword is correct
+// 	if user.Password != password {
+// 		log.Println(user.Password, password)
+// 		ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "Incorrect Password"})
+// 		return
+// 	}
 
-	// User is authenticated, proceed to generate new token
-	newToken, err := controller.auth.GenerateNewToken(user)
+// 	// User is authenticated, proceed to generate new token
+// 	newToken, err := controller.auth.GenerateNewToken(user)
 
-	if err != nil {
-		fmt.Println(err.Error())
-		ctx.AbortWithError(http.StatusInternalServerError, errors.New("failed to generate new token"))
-	}
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 		ctx.AbortWithError(http.StatusInternalServerError, errors.New("failed to generate new token"))
+// 	}
 
-	// c.SetCookie("token", newToken, 60, "/", "localhost", false, true)
-	ctx.JSON(http.StatusOK, gin.H{
-		"token": newToken,
-	})
-}
+// 	// c.SetCookie("token", newToken, 60, "/", "localhost", false, true)
+// 	ctx.JSON(http.StatusOK, gin.H{
+// 		"token": newToken,
+// 	})
+// }
 
 func (controller *Controller) SignUp(ctx *gin.Context) {
 	// Get user info from sign up form

@@ -1,11 +1,16 @@
 package auth
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
+	"log"
+	"net/http"
 	"time"
 
 	"github.com/ardimr/go-authentication-service.git/internal/model"
 	"github.com/ardimr/go-authentication-service.git/internal/query"
+	"github.com/gin-gonic/gin"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -37,6 +42,49 @@ func NewAuthService(issuer string, expiresAt int64, signingKey []byte, querier q
 		SigningKey: signingKey,
 		Querier:    querier,
 	}
+}
+
+func (auth *AuthService) SignIn(ctx *gin.Context) {
+	// Get username and password as the basic auth
+	username, password, ok := ctx.Request.BasicAuth()
+
+	if !ok {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		log.Println("Not a basic auth")
+		return
+	}
+
+	// Get user's info
+	user, err := auth.Querier.GetUserInfoByUsername(ctx, username)
+	if err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "User not found"})
+		default:
+			ctx.JSON(http.StatusInternalServerError, gin.H{"Error": err.Error()})
+		}
+		return
+	}
+
+	// Check if the userPassword is correct
+	if user.Password != password {
+		log.Println(user.Password, password)
+		ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "Incorrect Password"})
+		return
+	}
+
+	// User is authenticated, proceed to generate new token
+	newToken, err := auth.GenerateNewToken(user)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		ctx.AbortWithError(http.StatusInternalServerError, errors.New("failed to generate new token"))
+	}
+
+	// c.SetCookie("token", newToken, 60, "/", "localhost", false, true)
+	ctx.JSON(http.StatusOK, gin.H{
+		"token": newToken,
+	})
 }
 
 func (auth *AuthService) GenerateNewToken(user *model.UserInfo) (string, error) {
