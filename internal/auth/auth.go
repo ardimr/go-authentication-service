@@ -11,6 +11,7 @@ import (
 	"github.com/ardimr/go-authentication-service.git/internal/model"
 	"github.com/ardimr/go-authentication-service.git/internal/query"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/golang-jwt/jwt"
 )
@@ -59,7 +60,7 @@ func (auth *AuthService) SignIn(ctx *gin.Context) {
 		return
 	}
 
-	// Get user's info
+	// Get user's info from database
 	user, err := auth.Querier.GetUserInfoByUsername(ctx, username)
 	if err != nil {
 		switch err {
@@ -72,9 +73,8 @@ func (auth *AuthService) SignIn(ctx *gin.Context) {
 	}
 
 	// Check if the userPassword is correct
-	if user.Password != password {
-		log.Println(user.Password, password)
-		ctx.JSON(http.StatusUnauthorized, gin.H{"Error": "Incorrect Password"})
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"Error": "Incorrect Password"})
 		return
 	}
 
@@ -203,4 +203,14 @@ func (auth *AuthService) CheckPermission(userRolePermission model.RolePermission
 	}
 
 	return false
+}
+
+func HashPassword(password string) (string, error) {
+	// Convert password string to slice of byte
+	passwordBytes := []byte(password)
+
+	// Hash password with bycript's min cost
+	hashedPasswordBytes, err := bcrypt.GenerateFromPassword(passwordBytes, bcrypt.MinCost)
+
+	return string(hashedPasswordBytes), err
 }

@@ -80,6 +80,20 @@ func (controller *Controller) SignUp(ctx *gin.Context) {
 		return
 	}
 
+	// Generate hashed password
+	hashedPassword, err := auth.HashPassword(newUser.Password)
+
+	if err != nil {
+		ctx.AbortWithStatusJSON(
+			http.StatusInternalServerError,
+			gin.H{"Error": err.Error()},
+		)
+
+		return
+	}
+
+	newUser.Password = hashedPassword
+
 	// Add new user to the datasbase
 	newId, err := controller.querier.AddNewUser(ctx, newUser)
 
