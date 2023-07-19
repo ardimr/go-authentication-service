@@ -35,6 +35,11 @@ type AuthService struct {
 	Querier    query.Querier
 }
 
+type TokenPair struct {
+	AccessToken  string
+	RefreshToken string
+}
+
 func NewAuthService(issuer string, expiresAt int64, signingKey []byte, querier query.Querier) *AuthService {
 	return &AuthService{
 		Issuer:     issuer,
@@ -74,7 +79,7 @@ func (auth *AuthService) SignIn(ctx *gin.Context) {
 	}
 
 	// User is authenticated, proceed to generate new token
-	newToken, err := auth.GenerateNewToken(user)
+	newTokenPair, err := auth.GenerateNewTokenPair(user)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -83,8 +88,15 @@ func (auth *AuthService) SignIn(ctx *gin.Context) {
 
 	// c.SetCookie("token", newToken, 60, "/", "localhost", false, true)
 	ctx.JSON(http.StatusOK, gin.H{
-		"token": newToken,
+		"access token":  newTokenPair.AccessToken,
+		"refresh token": newTokenPair.RefreshToken,
 	})
+}
+
+func (auth *AuthService) RefreshToken(ctx *gin.Context) {
+	// Validate the refresh token
+
+	// Generate new token pair
 }
 
 func (auth *AuthService) GenerateNewToken(user *model.UserInfo) (string, error) {
@@ -112,6 +124,52 @@ func (auth *AuthService) GenerateNewToken(user *model.UserInfo) (string, error) 
 	return signedToken, nil
 }
 
+func (auth *AuthService) GenerateNewTokenPair(user *model.UserInfo) (TokenPair, error) {
+	var tokenPair TokenPair
+	// log.Println("Exp: ", auth.ExpiresAt)
+	claims := MyClaims{
+		StandardClaims: jwt.StandardClaims{
+			Issuer:    auth.Issuer,
+			ExpiresAt: time.Now().Add(time.Duration(auth.ExpiresAt) * time.Second).Unix(),
+		},
+		Username: user.Username,
+		Email:    user.Email,
+	}
+
+	accessToken := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		claims,
+	)
+
+	signedAccessToken, err := accessToken.SignedString(auth.SigningKey)
+
+	if err != nil {
+		return tokenPair, err
+	}
+
+	refreshClaims := MyClaims{
+		StandardClaims: jwt.StandardClaims{
+			Issuer:    auth.Issuer,
+			ExpiresAt: time.Now().Add(time.Duration(auth.ExpiresAt) * time.Second).Unix(),
+		},
+		Username: user.Username,
+	}
+
+	refreshToken := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		refreshClaims,
+	)
+	signedRefreshToken, err := refreshToken.SignedString(auth.SigningKey)
+
+	if err != nil {
+		return tokenPair, err
+	}
+
+	tokenPair.AccessToken = signedAccessToken
+	tokenPair.RefreshToken = signedRefreshToken
+
+	return tokenPair, nil
+}
 func (auth *AuthService) ValidateToken(tokenString string) (*jwt.Token, error) {
 	mySigningKey := auth.SigningKey
 
