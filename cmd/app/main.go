@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/ardimr/go-authentication-service.git/internal/query"
 	router "github.com/ardimr/go-authentication-service.git/internal/routes"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 
 	"github.com/gin-gonic/gin"
@@ -79,12 +81,17 @@ func main() {
 	// cloudClient = minioClient
 
 	// cloudClient.ListBuckets(context.Background())
-
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = []string{"http://localhost:3000"}
+	corsConfig.AllowCredentials = true
+	corsConfig.AllowHeaders = append(corsConfig.AllowHeaders, "Authorization")
+	fmt.Println(corsConfig)
 	// Setup REST Server
 	restServer := gin.New()
 	restServer.Use(gin.Recovery())
 	restServer.Use(gin.Logger())
 	restServer.Use(gzip.Gzip(gzip.DefaultCompression))
+	restServer.Use(cors.New(corsConfig))
 
 	// Initialize Auth service
 	expiresAt, err := strconv.Atoi(os.Getenv("JWT_EXPIRES_AT"))
