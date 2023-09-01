@@ -38,6 +38,7 @@ func MiddlewareValidateToken(auth *auth.AuthService) gin.HandlerFunc {
 		if ok && token.Valid {
 			// Put user data in the context as value
 			ctx.Set("user-info", claims)
+			ctx.Next()
 		} else {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"Error": err.Error()})
 			return
@@ -103,6 +104,7 @@ func UserHasPermission(auth *auth.AuthService) gin.HandlerFunc {
 			)
 			return
 		}
+		ctx.Next()
 	}
 }
 
@@ -133,9 +135,10 @@ func MiddlewareSetUserPermissions(auth *auth.AuthService) gin.HandlerFunc {
 
 		// Attach user's permission on the header
 		ctx.Set("user-permissions", rolePermissions)
+		ctx.Next()
 	}
-
 }
+
 func ActionFromMethod(httpMethod string) string {
 	switch httpMethod {
 	case "GET":
